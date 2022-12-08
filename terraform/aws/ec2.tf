@@ -29,6 +29,8 @@ EOF
     git_repo             = "terragoat"
     yor_trace            = "347af3cd-4f70-4632-aca3-4d5e30ffc0b6"
   })
+  ebs_optimized = true
+  monitoring = true
 }
 
 resource "aws_ebs_volume" "web_host_storage" {
@@ -48,6 +50,7 @@ resource "aws_ebs_volume" "web_host_storage" {
     git_repo             = "terragoat"
     yor_trace            = "c5509daf-10f0-46af-9e03-41989212521d"
   })
+  encrypted = true
 }
 
 resource "aws_ebs_snapshot" "example_snapshot" {
@@ -285,6 +288,98 @@ resource "aws_s3_bucket" "flowbucket" {
     git_repo             = "terragoat"
     yor_trace            = "f058838a-b1e0-4383-b965-7e06e987ffb1"
   })
+}
+
+
+resource "aws_s3_bucket_versioning" "flowbucket" {
+  bucket = aws_s3_bucket.flowbucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket" "destination" {
+  bucket = aws_s3_bucket.flowbucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_iam_role" "replication" {
+  name = "aws-iam-role"
+  assume_role_policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "s3.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+POLICY
+}
+
+resource "aws_s3_bucket_replication_configuration" "flowbucket" {
+  depends_on = [aws_s3_bucket_versioning.flowbucket]
+  role   = aws_iam_role.flowbucket.arn
+  bucket = aws_s3_bucket.flowbucket.id
+  rule {
+    id = "foobar"
+    status = "Enabled"
+    destination {
+      bucket        = aws_s3_bucket.destination.arn
+      storage_class = "STANDARD"
+    }
+  }
+}
+
+
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "flowbucket" {
+  bucket = aws_s3_bucket.flowbucket.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
+
+resource "aws_s3_bucket_versioning" "flowbucket" {
+  bucket = aws_s3_bucket.flowbucket.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "flowbucket" {
+  bucket = aws_s3_bucket.flowbucket.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "AES256"
+    }
+  }
+}
+
+
+resource "aws_s3_bucket" "flowbucket_log_bucket" {
+  bucket = "flowbucket-log-bucket"
+}
+
+resource "aws_s3_bucket_logging" "flowbucket" {
+  bucket = aws_s3_bucket.flowbucket.id
+
+  target_bucket = aws_s3_bucket.flowbucket_log_bucket.id
+  target_prefix = "log/"
 }
 
 output "ec2_public_dns" {
