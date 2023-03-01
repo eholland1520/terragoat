@@ -14,6 +14,7 @@ resource "aws_elasticsearch_domain" "monitoring-framework" {
     ebs_enabled = true
     volume_size = 30
   }
+  
   tags = {
     git_commit           = "d68d2897add9bc2203a5ed0632a5cdd8ff8cefb0"
     git_file             = "terraform/aws/es.tf"
@@ -23,6 +24,9 @@ resource "aws_elasticsearch_domain" "monitoring-framework" {
     git_org              = "bridgecrewio"
     git_repo             = "terragoat"
     yor_trace            = "95131dec-d7c9-49bb-9aff-eb0e2736603b"
+  }
+  log_publishing_options {
+    cloudwatch_log_group_arn = "CKV_ANY"
   }
 }
 
